@@ -189,6 +189,96 @@ En `NODE_ENV=production`, los errores 5xx no exponen detalles internos: se devue
 | `INTERNAL_ERROR` | 500 | Cualquier error inesperado |
 
 
+## Logging y monitoreo (Winston)
+
+Los mensajes sueltos de `console.log()` se reemplazaron por un **logger centralizado** con [Winston](https://github.com/winstonjs/winston) y [winston-daily-rotate-file](https://github.com/winstonjs/winston-daily-rotate-file). Se configura una sola vez en `src/config/logger.js` y se usa desde cualquier archivo con `import logger from '../config/logger.js'`.
+
+### Niveles de log
+
+| Nivel | Prioridad | Para qué se usa |
+|---|---|---|
+| `fatal` | 0 | Fallas críticas: configuración inválida, no se pudo conectar a MongoDB al arrancar, excepciones no capturadas |
+| `error` | 1 | Errores inesperados del servidor (5xx), fallas al cargar mocks, falla al crear un pedido |
+| `warning` | 2 | Errores esperados o de negocio (4xx): pedido no encontrado, cantidad inválida de mocks, ruta inexistente, pedido sin repartidor |
+| `info` | 3 | Eventos importantes: servidor iniciado, conexión a MongoDB, pedido creado, mocks generados o insertados |
+| `http` | 4 | Cada request: método, ruta, status y duración |
+| `debug` | 5 | Detalle interno para depurar |
+
+Formato de cada línea (consola y archivos): `timestamp [nivel] mensaje`
+
+```
+2026-11-18 00:48:29 [info]    Servidor ShipNow escuchando en el puerto 8080 (development)
+2026-11-18 00:48:29 [info]    Conexión a MongoDB establecida
+2026-11-18 00:48:31 [warning] Pedido ORD-1A2B3C4D sin repartidor asignado
+2026-11-18 00:48:35 [warning] [MOCK_NEGATIVE_QTY] "qty" no puede ser negativo. Valor recibido: "-5" - GET /api/mocks/users?qty=-5
+2026-11-18 00:48:40 [error]   Falló la creación del pedido: ValidationError (...)
+```
+
+### Comportamiento según el entorno (`NODE_ENV`)
+
+| `NODE_ENV` | Nivel mínimo | Consola | Archivos |
+|---|---|---|---|
+| `development` | `debug` (todo) | Sí, con colores | Sí |
+| `production` | `info` (no muestra `http` ni `debug`) | Sí, sin colores | Sí |
+| `test` | — | Silenciada | No se generan |
+
+### Integración con el manejo de errores
+
+El middleware global (`src/middlewares/errorHandler.js`) registra cada error antes de responder:
+
+- **4xx** (errores de negocio) → `warning`
+- **5xx** (errores inesperados, base caída, falla de carga de mocks) → `error`, con el stack
+- Las fallas al iniciar (variables de entorno faltantes, MongoDB inaccesible) y las excepciones no capturadas → `fatal` (en `src/server.js`)
+
+La respuesta al cliente es la misma que en la Pre-entrega 3: el logger complementa al manejo de errores, no lo reemplaza.
+
+### Archivos de logs y rotación
+
+| Archivo | Contenido | Rotación |
+|---|---|---|
+| `logs/error.log` | **Solo `error` y `fatal`** | Por tamaño: 5 MB por archivo, conserva los últimos 5 |
+| `logs/app-YYYY-MM-DD.log` | Todos los niveles activos según el entorno | Uno por día (o cada 20 MB), comprimidos, se conservan 14 días |
+
+**Git:** los archivos generados no se suben. En `.gitignore` está `logs/*` (y `*.log`). Solo se versiona `logs/.gitkeep` para que la carpeta quede documentada en el repo.
+
+### Endpoint de prueba del logger
+
+`GET /api/logger/test` genera un log de **cada nivel** (`debug`, `http`, `info`, `warning`, `error`, `fatal`). Es una herramienta interna para verificar la configuración, no una funcionalidad del negocio.
+
+```bash
+curl http://localhost:8080/api/logger/test
+```
+
+Responde qué niveles se muestran en el entorno actual y cuáles se guardan en `error.log`:
+
+```json
+{
+  "status": "success",
+  "message": "Se generó un log de cada nivel",
+  "nivelActivo": "debug",
+  "niveles": [
+    { "nivel": "debug", "mensaje": "Prueba de log DEBUG: ...", "seMuestra": true, "seGuardaEnErrorLog": false },
+    { "nivel": "fatal", "mensaje": "Prueba de log FATAL: ...", "seMuestra": true, "seGuardaEnErrorLog": true }
+  ],
+  "archivos": { "errores": "logs/error.log", "rotados": "logs/app-%DATE%.log" }
+}
+```
+
+Para verificar: mirá la consola (aparecen los 6 niveles en desarrollo), abrí `logs/error.log` (solo `error` y `fatal`) y `logs/app-<fecha>.log` (todos).
+
+### Creación de pedidos
+
+Para registrar la operación de negocio más importante se agregó `POST /api/orders`. Crea el pedido en estado `PENDING` y su entrega en `PENDING_ASSIGNMENT`. Loguea un `info` con el pedido creado y un `warning` porque queda sin repartidor asignado.
+
+```bash
+curl -X POST http://localhost:8080/api/orders -H "Content-Type: application/json" -d '{
+  "user": "<_id de un usuario con rol USER>",
+  "items": [{ "title": "Caja mediana", "quantity": 2, "unitPrice": 1500 }],
+  "priority": "HIGH",
+  "shippingAddress": { "street": "San Martín 123", "city": "Rosario", "province": "Santa Fe", "zipCode": "2000" }
+}'
+```
+
 ## Estructura
 
 ```
@@ -211,6 +301,7 @@ src/
 ├── app.js
 └── server.js
 tests/                  
+logs/
 ```
 
 ## ¿Por qué separé así la lógica entre Service y Repository?

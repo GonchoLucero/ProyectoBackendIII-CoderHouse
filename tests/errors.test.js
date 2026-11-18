@@ -1,4 +1,4 @@
-import { test, describe, afterEach, beforeEach, mock } from 'node:test';
+import { test, describe, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import request from 'supertest';
 import mongoose from 'mongoose';
@@ -9,7 +9,6 @@ import orderRepository from '../src/repositories/order.repository.js';
 import { ERRORS, AppError, UserNotFoundError } from '../src/errors/index.js';
 import { HTTP_STATUS, RESPONSE_STATUS, MOCK_COLLECTIONS, MOCK_LIMITS, ORDER_STATUS } from '../src/constants/index.js';
 
-beforeEach(() => mock.method(console, 'error', () => {}));
 afterEach(() => mock.restoreAll());
 
 const assertErrorShape = (res, status, code) => {

@@ -13,4 +13,9 @@ const getById = async (req, res) => {
   sendSuccess(res, HTTP_STATUS.OK, { payload: order });
 };
 
-export default { getAll, getById };
+const create = async (req, res) => {
+  const result = await orderService.createOrder(req.body);
+  sendSuccess(res, HTTP_STATUS.CREATED, { payload: result });
+};
+
+export default { getAll, getById, create };

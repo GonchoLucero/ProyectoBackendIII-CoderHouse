@@ -33,6 +33,11 @@ class DeliveryRepository {
     return DeliveryModel.distinct('order');
   }
 
+  async create(data) {
+    const created = await DeliveryModel.create(data);
+    return created.toObject();
+  }
+
   async insertMockMany(deliveries) {
     const docs = await DeliveryModel.insertMany(deliveries.map((d) => ({ ...d, isMock: true })));
     return docs.length;

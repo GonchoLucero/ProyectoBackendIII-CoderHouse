@@ -1,7 +1,10 @@
 import dotenv from 'dotenv';
 import { NODE_ENVS } from '../constants/index.js';
+import { configureLogger } from './logger.js';
 
 dotenv.config({ quiet: true });
+
+configureLogger(Object.values(NODE_ENVS).includes(process.env.NODE_ENV) ? process.env.NODE_ENV : NODE_ENVS.DEVELOPMENT);
 
 const REQUIRED_VARS = ['PORT', 'MONGODB_URI', 'NODE_ENV'];
 

@@ -30,6 +30,11 @@ class OrderRepository {
       .lean();
   }
 
+  async create(data) {
+    const created = await OrderModel.create(data);
+    return created.toObject();
+  }
+
   async insertMockMany(orders) {
     const docs = await OrderModel.insertMany(orders.map((o) => ({ ...o, isMock: true })));
     return docs.length;

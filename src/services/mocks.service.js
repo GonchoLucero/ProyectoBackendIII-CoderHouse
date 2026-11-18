@@ -3,6 +3,7 @@ import config from '../config/index.js';
 import userRepository from '../repositories/user.repository.js';
 import orderRepository from '../repositories/order.repository.js';
 import deliveryRepository from '../repositories/delivery.repository.js';
+import logger from '../config/logger.js';
 import {
   AppError,
   InvalidMockQuantityError,
@@ -111,40 +112,58 @@ const runSeed = async (collection, progress, task) => {
   }
 };
 
+const summarize = (counts) =>
+  Object.entries(counts)
+    .map(([name, n]) => `${n} ${name}`)
+    .join(', ');
+
+const logGenerated = (result, counts) => {
+  logger.info(`Mocks generados (sin guardar): ${summarize(counts)}`);
+  return result;
+};
+
 class MocksService {
   getMockUsers(qty) {
     const n = parseQty(qty);
-    return safeGenerate(() => generateMixedUsers(n));
+    return logGenerated(safeGenerate(() => generateMixedUsers(n)), { [MOCK_COLLECTIONS.USERS]: n });
   }
 
   getMockCouriers(qty) {
     const n = parseQty(qty);
-    return safeGenerate(() => times(n, generateCourier));
+    return logGenerated(safeGenerate(() => times(n, generateCourier)), { [MOCK_COLLECTIONS.COURIERS]: n });
   }
 
   getMockOrders(qty) {
     const n = parseQty(qty);
-    return safeGenerate(() => {
+    const result = safeGenerate(() => {
       const users = times(Math.ceil(n / 2), () => generateUser({ role: USER_ROLES.USER }));
       const { orders } = buildOrdersWithDeliveries({ clientIds: users.map((u) => u._id), courierIds: [], qty: n });
       return { orders, related: { users } };
     });
+    return logGenerated(result, { [MOCK_COLLECTIONS.ORDERS]: n });
   }
 
   getMockDeliveries(qty) {
     const n = parseQty(qty);
-    return safeGenerate(() => {
+    const result = safeGenerate(() => {
       const dataset = buildDataset({ users: Math.ceil(n / 2), couriers: Math.ceil(n / 3), orders: n });
       return {
         deliveries: dataset.deliveries,
         related: { orders: dataset.orders, couriers: dataset.couriers, users: dataset.users },
       };
     });
+    return logGenerated(result, { [MOCK_COLLECTIONS.DELIVERIES]: n });
   }
 
   getMockDataset(query = {}) {
     const params = parseDatasetParams(query);
-    return safeGenerate(() => buildDataset(params));
+    const dataset = safeGenerate(() => buildDataset(params));
+    return logGenerated(dataset, {
+      [MOCK_COLLECTIONS.USERS]: dataset.users.length,
+      [MOCK_COLLECTIONS.COURIERS]: dataset.couriers.length,
+      [MOCK_COLLECTIONS.ORDERS]: dataset.orders.length,
+      [MOCK_COLLECTIONS.DELIVERIES]: dataset.deliveries.length,
+    });
   }
 
   async seed({ qty, coleccion } = {}) {
@@ -159,11 +178,13 @@ class MocksService {
     };
 
     const insertados = await runSeed(collection, 0, seeders[collection]);
+    logger.info(`Datos de prueba insertados en MongoDB: ${insertados} ${collection}`);
     return { insertados, coleccion: collection };
   }
 
   async seedAll(query = {}) {
-    const dataset = this.getMockDataset(query);
+    const params = parseDatasetParams(query);
+    const dataset = safeGenerate(() => buildDataset(params));
     const progress = {
       [MOCK_COLLECTIONS.USERS]: 0,
       [MOCK_COLLECTIONS.COURIERS]: 0,
@@ -186,6 +207,7 @@ class MocksService {
       });
     }
 
+    logger.info(`Dataset de prueba insertado en MongoDB: ${summarize(progress)}`);
     return { insertados: progress };
   }
 
@@ -196,6 +218,7 @@ class MocksService {
         orderRepository.deleteMocks(),
         userRepository.deleteMocks(),
       ]);
+      logger.info(`Datos de prueba eliminados: ${usuarios} usuarios, ${pedidos} pedidos, ${entregas} entregas`);
       return {
         eliminados: {
           [MOCK_COLLECTIONS.USERS]: usuarios,
@@ -241,6 +264,8 @@ class MocksService {
       });
     }
     const deliveries = orders.map((order) => generateDelivery({ order, courierIds }));
+    const withoutCourier = deliveries.filter((d) => !d.courier).length;
+    if (withoutCourier) logger.warning(`${withoutCourier} entregas quedaron sin repartidor asignado`);
     return deliveryRepository.insertMockMany(deliveries);
   }
 }

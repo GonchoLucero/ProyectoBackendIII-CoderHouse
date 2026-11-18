@@ -1,4 +1,5 @@
 import config from '../config/index.js';
+import logger from '../config/logger.js';
 import { AppError, ERRORS, RouteNotFoundError } from '../errors/index.js';
 import { HTTP_STATUS, RESPONSE_STATUS } from '../constants/index.js';
 
@@ -43,7 +44,9 @@ export const errorHandler = (err, req, res, next) => {
   const error = normalizeError(err);
   const isServerError = error.statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR;
 
-  if (isServerError) console.error(`[error] ${error.code}:`, err.cause ?? err);
+  const logLine = `[${error.code}] ${error.message} - ${req.method} ${req.originalUrl}`;
+  if (isServerError) logger.error(logLine, { stack: error.cause?.stack ?? err?.stack });
+  else logger.warning(logLine);
 
   const hideInternals = isServerError && config.isProduction;
 

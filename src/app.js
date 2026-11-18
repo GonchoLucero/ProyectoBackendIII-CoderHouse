@@ -1,10 +1,12 @@
 import express from 'express';
 import apiRouter from './routes/index.js';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
+import { httpLogger } from './middlewares/httpLogger.js';
 import { HTTP_STATUS, RESPONSE_STATUS } from './constants/index.js';
 
 const app = express();
 
+app.use(httpLogger);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

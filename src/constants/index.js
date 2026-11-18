@@ -97,3 +97,31 @@ export const MOCK_LIMITS = Object.freeze({
 });
 
 export const MOCK_DEFAULT_PASSWORD = 'coder123';
+
+export const LOG_LEVELS = Object.freeze({
+  fatal: 0,
+  error: 1,
+  warning: 2,
+  info: 3,
+  http: 4,
+  debug: 5,
+});
+
+export const LOG_COLORS = Object.freeze({
+  fatal: 'bold white redBG',
+  error: 'red',
+  warning: 'yellow',
+  info: 'green',
+  http: 'magenta',
+  debug: 'cyan',
+});
+
+export const LOG_FILES = Object.freeze({
+  DIR: 'logs',
+  ERROR_FILE: 'error.log',
+  ERROR_MAX_SIZE_BYTES: 5 * 1024 * 1024,
+  ERROR_MAX_FILES: 5,
+  ROTATING_PATTERN: 'app-%DATE%.log',
+  ROTATING_MAX_SIZE: '20m',
+  ROTATING_RETENTION: '14d',
+});
