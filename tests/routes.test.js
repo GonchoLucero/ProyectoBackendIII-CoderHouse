@@ -34,7 +34,8 @@ describe('Rutas /api/mocks', () => {
     const res = await request(app).get('/api/mocks/users?qty=abc');
     assert.equal(res.status, HTTP_STATUS.BAD_REQUEST);
     assert.equal(res.body.status, RESPONSE_STATUS.ERROR);
-    assert.match(res.body.error, /qty/);
+    assert.equal(res.body.error.code, 'MOCK_INVALID_QTY');
+    assert.match(res.body.error.message, /qty/);
   });
 
   test('POST /api/mocks/seed?qty=10 → 201 { insertados: 10, coleccion: "usuarios" }', async () => {

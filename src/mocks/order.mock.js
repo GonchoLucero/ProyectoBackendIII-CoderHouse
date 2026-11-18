@@ -1,4 +1,5 @@
 import faker from './faker.js';
+import { MockGenerationError } from '../errors/index.js';
 import { AR_LOCATIONS } from './locations.data.js';
 import { ORDER_STATUS, ORDER_PRIORITY, MOCK_LIMITS } from '../constants/index.js';
 
@@ -34,7 +35,7 @@ export const calculateOrderTotal = (items) =>
  * @param {string[]} [params.allowedStatuses] 
  */
 export const generateOrder = ({ userId, allowedStatuses = Object.values(ORDER_STATUS) } = {}) => {
-  if (!userId) throw new Error('generateOrder necesita el userId del cliente');
+  if (!userId) throw new MockGenerationError('generateOrder necesita el userId del cliente');
 
   const items = Array.from(
     { length: faker.number.int({ min: 1, max: MOCK_LIMITS.MAX_ITEMS_PER_ORDER }) },

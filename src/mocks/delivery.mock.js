@@ -1,4 +1,5 @@
 import faker from './faker.js';
+import { MockGenerationError } from '../errors/index.js';
 import {
   ORDER_STATUS,
   DELIVERY_STATUS,
@@ -20,11 +21,11 @@ export const allowedOrderStatuses = (hasCouriers) =>
  * @param {string[]} [params.courierIds]                
  */
 export const generateDelivery = ({ order, courierIds = [] } = {}) => {
-  if (!order?._id || !order?.status) throw new Error('generateDelivery necesita un pedido con _id y status');
+  if (!order?._id || !order?.status) throw new MockGenerationError('generateDelivery necesita un pedido con _id y status');
 
   const options = allowedDeliveryStatuses(order.status, courierIds.length > 0);
   if (options.length === 0) {
-    throw new Error(`El pedido ${order._id} (${order.status}) necesita un repartidor y no hay ninguno`);
+    throw new MockGenerationError(`El pedido ${order._id} (${order.status}) necesita un repartidor y no hay ninguno`);
   }
 
   const status = faker.helpers.arrayElement(options);

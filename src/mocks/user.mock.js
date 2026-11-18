@@ -1,4 +1,5 @@
 import faker from './faker.js';
+import { MockGenerationError } from '../errors/index.js';
 import { USER_ROLES, VEHICLE_TYPES, MOCK_LIMITS } from '../constants/index.js';
 
 const toEmailPart = (text) =>
@@ -17,7 +18,7 @@ export const randomUserRole = () => {
 
 export const generateUser = ({ role = USER_ROLES.USER } = {}) => {
   if (!Object.values(USER_ROLES).includes(role)) {
-    throw new Error(`Rol inválido para mock: ${role}`);
+    throw new MockGenerationError(`Rol inválido para mock: ${role}`);
   }
 
   const first_name = faker.person.firstName();

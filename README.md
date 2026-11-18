@@ -120,6 +120,75 @@ Ejemplo: `POST /api/mocks/seed/all?users=10&couriers=3&orders=20`
 | Entrega | `trackingCode`, `order`, `courier`, `status`, `estimatedDeliveryDate`, `deliveredAt` | `DELIVERY_STATUS`: `PENDING_ASSIGNMENT`, `ASSIGNED`, `IN_TRANSIT`, `DELIVERED`, `CANCELLED` |
 
 
+## Manejo de errores
+
+Todos los errores de la API pasan por una **capa centralizada**:
+
+| Pieza | Archivo | Rol |
+|---|---|---|
+| Diccionario de errores | `src/errors/errorDictionary.js` | Cada error tiene un `code` estable, un status HTTP y un mensaje por defecto |
+| Error base | `src/errors/AppError.js` | Clase base: toma `code` y `status` del diccionario |
+| Errores de dominio | `src/errors/domain.errors.js` | `UserNotFoundError`, `OrderNotFoundError`, `InvalidStatusError`, `InvalidMockQuantityError`, `MockSeedError`, etc. |
+| Middleware global | `src/middlewares/errorHandler.js` | **Único lugar que responde errores.** También traduce errores de Mongoose, de MongoDB y de Express |
+
+Los errores se **detectan** en la capa que corresponde (sobre todo en los services) y se lanzan con `throw`. Ni las rutas ni los controllers responden errores: Express 5 deriva automáticamente al middleware los errores de funciones `async`. Las rutas inexistentes también pasan por el middleware.
+
+### Estructura de la respuesta de error
+
+Todas las respuestas de error tienen la misma forma:
+
+```json
+{
+  "status": "error",
+  "error": {
+    "code": "MOCK_NEGATIVE_QTY",
+    "message": "\"qty\" no puede ser negativo. Valor recibido: \"-5\"",
+    "details": { "param": "qty", "value": "-5" }
+  },
+  "method": "GET",
+  "path": "/api/mocks/users?qty=-5",
+  "timestamp": "2026-11-18T03:29:38.220Z"
+}
+```
+
+| Campo | Descripción |
+|---|---|
+| `status` | Siempre `"error"` |
+| `error.code` | Código del diccionario. Es estable, así que el cliente puede programar en base a él |
+| `error.message` | Mensaje legible en español |
+| `error.details` | Opcional: datos extra (campo inválido, valores permitidos, qué se insertó antes de una falla…) |
+| `method`, `path`, `timestamp` | Contexto del request |
+
+En `NODE_ENV=production`, los errores 5xx no exponen detalles internos: se devuelve el mensaje genérico del diccionario.
+
+### Códigos de error
+
+| Código | HTTP | Cuándo ocurre |
+|---|---|---|
+| `VALIDATION_ERROR` | 400 | Datos con formato o valor inválido (precio negativo, validación de Mongoose…) |
+| `MISSING_FIELDS` | 400 | Faltan campos obligatorios (`details.fields` dice cuáles) |
+| `NO_FIELDS_TO_UPDATE` | 400 | `PUT` sin ningún campo actualizable |
+| `INVALID_ID` | 400 | Id con formato inválido |
+| `INVALID_JSON` | 400 | Body mal formado |
+| `INVALID_PAGINATION` | 400 | `limit` o `page` no son enteros positivos |
+| `INVALID_ROLE` / `INVALID_VEHICLE` / `INVALID_STATUS` / `INVALID_PRIORITY` | 400 | Valor fuera de las constantes (`details.allowed` lista los válidos) |
+| `INVALID_EMAIL` | 400 | Email con formato inválido |
+| `USER_NOT_FOUND` / `PRODUCT_NOT_FOUND` / `ORDER_NOT_FOUND` / `DELIVERY_NOT_FOUND` | 404 | El recurso no existe |
+| `ROUTE_NOT_FOUND` | 404 | La ruta no existe |
+| `DUPLICATE_EMAIL` / `DUPLICATE_PRODUCT_CODE` / `DUPLICATE_KEY` | 409 | Ya existe un registro con ese valor único |
+| `MOCK_INVALID_QTY` | 400 | La cantidad no es un entero, es 0 o se envió repetida |
+| `MOCK_NEGATIVE_QTY` | 400 | La cantidad es negativa |
+| `MOCK_QTY_EXCEEDED` | 400 | La cantidad supera el máximo (500) |
+| `MOCK_EMPTY_REQUEST` | 400 | En `/dataset` o `/seed/all` todas las cantidades son 0 |
+| `MOCK_INVALID_COLLECTION` | 400 | `coleccion` no es `usuarios`, `repartidores`, `pedidos` ni `entregas` |
+| `MOCK_MISSING_DEPENDENCY` | 400 | Faltan datos previos (pedidos sin clientes, entregas sin repartidores…). `details.hint` dice qué cargar |
+| `SEED_FORBIDDEN` | 403 | Carga de mocks en producción |
+| `MOCK_GENERATION_FAILED` | 500 | Falló la generación de datos falsos |
+| `MOCK_SEED_FAILED` | 500 | Falló la inserción en MongoDB (`details` trae la colección, el motivo y lo insertado antes del error) |
+| `DATABASE_UNAVAILABLE` | 503 | No hay conexión con MongoDB |
+| `INTERNAL_ERROR` | 500 | Cualquier error inesperado |
+
+
 ## Estructura
 
 ```
@@ -136,6 +205,7 @@ src/
 ├── services/           
 ├── controllers/         
 ├── routes/             
+├── errors/
 ├── middlewares/       
 ├── utils/              
 ├── app.js

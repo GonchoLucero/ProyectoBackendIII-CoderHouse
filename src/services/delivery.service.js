@@ -1,12 +1,12 @@
 import deliveryRepository from '../repositories/delivery.repository.js';
-import AppError from '../utils/AppError.js';
+import { DeliveryNotFoundError, InvalidStatusError } from '../errors/index.js';
 import { validateEnum } from '../utils/validation.utils.js';
 import { parsePagination, buildPagination } from '../utils/query.utils.js';
-import { DELIVERY_STATUS, HTTP_STATUS } from '../constants/index.js';
+import { DELIVERY_STATUS } from '../constants/index.js';
 
 class DeliveryService {
   async getDeliveries({ limit, page, status } = {}) {
-    validateEnum(status, DELIVERY_STATUS, 'Estado');
+    validateEnum(status, DELIVERY_STATUS, InvalidStatusError);
     const filter = status ? { status } : {};
 
     const pg = parsePagination({ limit, page });
@@ -16,7 +16,7 @@ class DeliveryService {
 
   async getDeliveryById(id) {
     const delivery = await deliveryRepository.getById(id);
-    if (!delivery) throw new AppError(`Entrega ${id} no encontrada`, HTTP_STATUS.NOT_FOUND);
+    if (!delivery) throw new DeliveryNotFoundError(id);
     return delivery;
   }
 }

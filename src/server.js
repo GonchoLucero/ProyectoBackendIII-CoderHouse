@@ -15,3 +15,13 @@ const start = async () => {
 };
 
 start();
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[process] Promesa rechazada sin manejar:', reason);
+  process.exit(1);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('[process] Excepción no capturada:', error);
+  process.exit(1);
+});

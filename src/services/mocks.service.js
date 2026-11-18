@@ -3,7 +3,17 @@ import config from '../config/index.js';
 import userRepository from '../repositories/user.repository.js';
 import orderRepository from '../repositories/order.repository.js';
 import deliveryRepository from '../repositories/delivery.repository.js';
-import AppError from '../utils/AppError.js';
+import {
+  AppError,
+  InvalidMockQuantityError,
+  NegativeMockQuantityError,
+  MockQuantityExceededError,
+  EmptyMockRequestError,
+  InvalidMockCollectionError,
+  MockDependencyError,
+  MockGenerationError,
+  MockSeedError,
+} from '../errors/index.js';
 import {
   generateUser,
   generateCourier,
@@ -12,38 +22,54 @@ import {
   generateDelivery,
   allowedOrderStatuses,
 } from '../mocks/index.js';
-import {
-  USER_ROLES,
-  HTTP_STATUS,
-  MOCK_COLLECTIONS,
-  MOCK_LIMITS,
-  MOCK_DEFAULT_PASSWORD,
-} from '../constants/index.js';
+import { USER_ROLES, MOCK_COLLECTIONS, MOCK_LIMITS, MOCK_DEFAULT_PASSWORD } from '../constants/index.js';
 
 const times = (n, fn) => Array.from({ length: n }, (_, i) => fn(i));
+const randomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 const parseQty = (value, { name = 'qty', allowZero = false } = {}) => {
   if (value === undefined || value === '') return MOCK_LIMITS.DEFAULT_QTY;
+  if (Array.isArray(value)) throw new InvalidMockQuantityError(name, value, 'se envió más de una vez');
+
   const n = Number(value);
-  const min = allowZero ? 0 : 1;
-  if (!Number.isInteger(n) || n < min || n > MOCK_LIMITS.MAX_QTY) {
-    throw new AppError(
-      `"${name}" debe ser un entero entre ${min} y ${MOCK_LIMITS.MAX_QTY}. Valor recibido: "${value}"`,
-      HTTP_STATUS.BAD_REQUEST
-    );
-  }
+  if (!Number.isInteger(n)) throw new InvalidMockQuantityError(name, value);
+  if (n < 0) throw new NegativeMockQuantityError(name, value);
+  if (n === 0 && !allowZero) throw new InvalidMockQuantityError(name, value, 'debe ser mayor a 0');
+  if (n > MOCK_LIMITS.MAX_QTY) throw new MockQuantityExceededError(name, value, MOCK_LIMITS.MAX_QTY);
   return n;
 };
 
 const parseCollection = (value = MOCK_COLLECTIONS.USERS) => {
-  const allowed = Object.values(MOCK_COLLECTIONS);
-  if (!allowed.includes(value)) {
-    throw new AppError(
-      `Colección inválida: "${value}". Opciones: ${allowed.join(', ')}`,
-      HTTP_STATUS.BAD_REQUEST
-    );
+  if (!Object.values(MOCK_COLLECTIONS).includes(value)) {
+    throw new InvalidMockCollectionError(value, MOCK_COLLECTIONS);
   }
   return value;
+};
+
+const parseDatasetParams = ({ users, couriers, orders } = {}) => {
+  const params = {
+    users: parseQty(users, { name: 'users', allowZero: true }),
+    couriers: parseQty(couriers, { name: 'couriers', allowZero: true }),
+    orders: parseQty(orders, { name: 'orders', allowZero: true }),
+  };
+  if (params.users + params.couriers + params.orders === 0) {
+    throw new EmptyMockRequestError(Object.keys(params));
+  }
+  if (params.orders > 0 && params.users === 0) {
+    throw new MockDependencyError('Para generar pedidos hace falta al menos 1 usuario', {
+      required: 'users >= 1',
+    });
+  }
+  return params;
+};
+
+const safeGenerate = (fn) => {
+  try {
+    return fn();
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    throw new MockGenerationError(`No se pudieron generar los datos de prueba: ${err.message}`, err);
+  }
 };
 
 const withHashedPassword = async (users) => {
@@ -55,20 +81,12 @@ const generateMixedUsers = (qty) => times(qty, () => generateUser({ role: random
 
 const buildOrdersWithDeliveries = ({ clientIds, courierIds, qty }) => {
   const statuses = allowedOrderStatuses(courierIds.length > 0);
-  const orders = times(qty, () =>
-    generateOrder({
-      userId: clientIds[Math.floor(Math.random() * clientIds.length)],
-      allowedStatuses: statuses,
-    })
-  );
+  const orders = times(qty, () => generateOrder({ userId: randomItem(clientIds), allowedStatuses: statuses }));
   const deliveries = orders.map((order) => generateDelivery({ order, courierIds }));
   return { orders, deliveries };
 };
 
 const buildDataset = ({ users, couriers, orders }) => {
-  if (orders > 0 && users === 0) {
-    throw new AppError('Para generar pedidos hace falta al menos 1 usuario (users >= 1)', HTTP_STATUS.BAD_REQUEST);
-  }
   const clients = times(users, () => generateUser({ role: USER_ROLES.USER }));
   const courierList = times(couriers, generateCourier);
   const { orders: orderList, deliveries } = buildOrdersWithDeliveries({
@@ -79,41 +97,54 @@ const buildDataset = ({ users, couriers, orders }) => {
   return { users: clients, couriers: courierList, orders: orderList, deliveries };
 };
 
+const runSeed = async (collection, progress, task) => {
+  try {
+    return await task();
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    throw new MockSeedError({
+      collection,
+      insertedBeforeError: progress,
+      reason: err.message,
+      cause: err,
+    });
+  }
+};
+
 class MocksService {
   getMockUsers(qty) {
-    return generateMixedUsers(parseQty(qty));
+    const n = parseQty(qty);
+    return safeGenerate(() => generateMixedUsers(n));
   }
 
   getMockCouriers(qty) {
-    return times(parseQty(qty), generateCourier);
+    const n = parseQty(qty);
+    return safeGenerate(() => times(n, generateCourier));
   }
 
   getMockOrders(qty) {
     const n = parseQty(qty);
-    const users = times(Math.ceil(n / 2), () => generateUser({ role: USER_ROLES.USER }));
-    const { orders } = buildOrdersWithDeliveries({
-      clientIds: users.map((u) => u._id),
-      courierIds: [],
-      qty: n,
+    return safeGenerate(() => {
+      const users = times(Math.ceil(n / 2), () => generateUser({ role: USER_ROLES.USER }));
+      const { orders } = buildOrdersWithDeliveries({ clientIds: users.map((u) => u._id), courierIds: [], qty: n });
+      return { orders, related: { users } };
     });
-    return { orders, related: { users } };
   }
 
   getMockDeliveries(qty) {
     const n = parseQty(qty);
-    const dataset = buildDataset({ users: Math.ceil(n / 2), couriers: Math.ceil(n / 3), orders: n });
-    return {
-      deliveries: dataset.deliveries,
-      related: { orders: dataset.orders, couriers: dataset.couriers, users: dataset.users },
-    };
+    return safeGenerate(() => {
+      const dataset = buildDataset({ users: Math.ceil(n / 2), couriers: Math.ceil(n / 3), orders: n });
+      return {
+        deliveries: dataset.deliveries,
+        related: { orders: dataset.orders, couriers: dataset.couriers, users: dataset.users },
+      };
+    });
   }
 
-  getMockDataset({ users, couriers, orders } = {}) {
-    return buildDataset({
-      users: parseQty(users, { name: 'users', allowZero: true }),
-      couriers: parseQty(couriers, { name: 'couriers', allowZero: true }),
-      orders: parseQty(orders, { name: 'orders', allowZero: true }),
-    });
+  getMockDataset(query = {}) {
+    const params = parseDatasetParams(query);
+    return safeGenerate(() => buildDataset(params));
   }
 
   async seed({ qty, coleccion } = {}) {
@@ -127,44 +158,52 @@ class MocksService {
       [MOCK_COLLECTIONS.DELIVERIES]: () => this.#seedDeliveries(n),
     };
 
-    const insertados = await seeders[collection]();
+    const insertados = await runSeed(collection, 0, seeders[collection]);
     return { insertados, coleccion: collection };
   }
 
-  async seedAll({ users, couriers, orders } = {}) {
-    const dataset = this.getMockDataset({ users, couriers, orders });
-
-    // Orden obligatorio por las relaciones: usuarios → pedidos → entregas.
-    const allUsers = await withHashedPassword([...dataset.users, ...dataset.couriers]);
-    await userRepository.insertMockMany(allUsers);
-    const pedidos = dataset.orders.length ? await orderRepository.insertMockMany(dataset.orders) : 0;
-    const entregas = dataset.deliveries.length
-      ? await deliveryRepository.insertMockMany(dataset.deliveries)
-      : 0;
-
-    return {
-      insertados: {
-        [MOCK_COLLECTIONS.USERS]: dataset.users.length,
-        [MOCK_COLLECTIONS.COURIERS]: dataset.couriers.length,
-        [MOCK_COLLECTIONS.ORDERS]: pedidos,
-        [MOCK_COLLECTIONS.DELIVERIES]: entregas,
-      },
+  async seedAll(query = {}) {
+    const dataset = this.getMockDataset(query);
+    const progress = {
+      [MOCK_COLLECTIONS.USERS]: 0,
+      [MOCK_COLLECTIONS.COURIERS]: 0,
+      [MOCK_COLLECTIONS.ORDERS]: 0,
+      [MOCK_COLLECTIONS.DELIVERIES]: 0,
     };
+
+    await runSeed(MOCK_COLLECTIONS.USERS, { ...progress }, async () => {
+      await userRepository.insertMockMany(await withHashedPassword([...dataset.users, ...dataset.couriers]));
+      progress[MOCK_COLLECTIONS.USERS] = dataset.users.length;
+      progress[MOCK_COLLECTIONS.COURIERS] = dataset.couriers.length;
+    });
+
+    if (dataset.orders.length) {
+      await runSeed(MOCK_COLLECTIONS.ORDERS, { ...progress }, async () => {
+        progress[MOCK_COLLECTIONS.ORDERS] = await orderRepository.insertMockMany(dataset.orders);
+      });
+      await runSeed(MOCK_COLLECTIONS.DELIVERIES, { ...progress }, async () => {
+        progress[MOCK_COLLECTIONS.DELIVERIES] = await deliveryRepository.insertMockMany(dataset.deliveries);
+      });
+    }
+
+    return { insertados: progress };
   }
 
   async clearMocks() {
-    const [entregas, pedidos, usuarios] = await Promise.all([
-      deliveryRepository.deleteMocks(),
-      orderRepository.deleteMocks(),
-      userRepository.deleteMocks(),
-    ]);
-    return {
-      eliminados: {
-        [MOCK_COLLECTIONS.USERS]: usuarios,
-        [MOCK_COLLECTIONS.ORDERS]: pedidos,
-        [MOCK_COLLECTIONS.DELIVERIES]: entregas,
-      },
-    };
+    return runSeed('todas', 0, async () => {
+      const [entregas, pedidos, usuarios] = await Promise.all([
+        deliveryRepository.deleteMocks(),
+        orderRepository.deleteMocks(),
+        userRepository.deleteMocks(),
+      ]);
+      return {
+        eliminados: {
+          [MOCK_COLLECTIONS.USERS]: usuarios,
+          [MOCK_COLLECTIONS.ORDERS]: pedidos,
+          [MOCK_COLLECTIONS.DELIVERIES]: entregas,
+        },
+      };
+    });
   }
 
   async #seedUsers(users) {
@@ -174,14 +213,12 @@ class MocksService {
   async #seedOrders(qty) {
     const clientIds = await userRepository.getIdsByRole(USER_ROLES.USER);
     if (clientIds.length === 0) {
-      throw new AppError(
-        `No hay usuarios con rol ${USER_ROLES.USER} en la base. Cargá primero: POST /api/mocks/seed?coleccion=${MOCK_COLLECTIONS.USERS}`,
-        HTTP_STATUS.BAD_REQUEST
-      );
+      throw new MockDependencyError(`No hay usuarios con rol ${USER_ROLES.USER} en la base`, {
+        required: MOCK_COLLECTIONS.USERS,
+        hint: `POST /api/mocks/seed?coleccion=${MOCK_COLLECTIONS.USERS}`,
+      });
     }
-    const orders = times(qty, () =>
-      generateOrder({ userId: clientIds[Math.floor(Math.random() * clientIds.length)] })
-    );
+    const orders = times(qty, () => generateOrder({ userId: randomItem(clientIds) }));
     return orderRepository.insertMockMany(orders);
   }
 
@@ -191,17 +228,17 @@ class MocksService {
       deliveryRepository.getOrderIds(),
     ]);
     if (courierIds.length === 0) {
-      throw new AppError(
-        `No hay repartidores (rol ${USER_ROLES.COURIER}) en la base. Cargá primero: POST /api/mocks/seed?coleccion=${MOCK_COLLECTIONS.COURIERS}`,
-        HTTP_STATUS.BAD_REQUEST
-      );
+      throw new MockDependencyError(`No hay repartidores (rol ${USER_ROLES.COURIER}) en la base`, {
+        required: MOCK_COLLECTIONS.COURIERS,
+        hint: `POST /api/mocks/seed?coleccion=${MOCK_COLLECTIONS.COURIERS}`,
+      });
     }
     const orders = await orderRepository.getWithoutDelivery(orderIdsWithDelivery, qty);
     if (orders.length === 0) {
-      throw new AppError(
-        `No hay pedidos sin entrega. Cargá primero: POST /api/mocks/seed?coleccion=${MOCK_COLLECTIONS.ORDERS}`,
-        HTTP_STATUS.BAD_REQUEST
-      );
+      throw new MockDependencyError('No hay pedidos sin entrega', {
+        required: MOCK_COLLECTIONS.ORDERS,
+        hint: `POST /api/mocks/seed?coleccion=${MOCK_COLLECTIONS.ORDERS}`,
+      });
     }
     const deliveries = orders.map((order) => generateDelivery({ order, courierIds }));
     return deliveryRepository.insertMockMany(deliveries);

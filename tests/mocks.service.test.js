@@ -122,7 +122,10 @@ describe('MocksService — carga en MongoDB (repositories simulados)', () => {
     mock.method(userRepository, 'getIdsByRole', async () => []);
     await assert.rejects(
       mocksService.seed({ qty: '3', coleccion: MOCK_COLLECTIONS.ORDERS }),
-      (err) => err.statusCode === HTTP_STATUS.BAD_REQUEST && /Cargá primero/.test(err.message)
+      (err) =>
+        err.statusCode === HTTP_STATUS.BAD_REQUEST &&
+        err.code === 'MOCK_MISSING_DEPENDENCY' &&
+        err.details.required === MOCK_COLLECTIONS.USERS
     );
   });
 
@@ -144,8 +147,8 @@ describe('MocksService — carga en MongoDB (repositories simulados)', () => {
     const result = await mocksService.seed({ qty: '10', coleccion: MOCK_COLLECTIONS.DELIVERIES });
     assert.equal(result.insertados, 2);
     assert.deepEqual(calls[0].map((d) => d.order), pending.map((o) => o._id));
-    assert.equal(calls[0][0].courier, courierIds[0]); // SHIPPED → IN_TRANSIT con repartidor
-    assert.equal(calls[0][1].courier, null); // PENDING → sin repartidor
+    assert.equal(calls[0][0].courier, courierIds[0]);
+    assert.equal(calls[0][1].courier, null);
   });
 
   test('colección desconocida → 400', async () => {
