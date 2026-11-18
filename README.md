@@ -279,6 +279,23 @@ curl -X POST http://localhost:8080/api/orders -H "Content-Type: application/json
 }'
 ```
 
+## Documentación de la API (Swagger)
+
+### Qué está documentado
+
+| Tag | Endpoints |
+|---|---|
+| **Users** | `GET/POST /api/users`, `GET/PUT/DELETE /api/users/{uid}` |
+| **Orders** | `GET/POST /api/orders`, `GET /api/orders/{oid}` |
+| **Deliveries** | `GET /api/deliveries`, `GET /api/deliveries/{did}` |
+| **Mocks** | `GET /api/mocks/users`, `/couriers`, `/orders`, `/deliveries`, `/dataset` · `POST /api/mocks/seed`, `POST /api/mocks/seed/all` · `DELETE /api/mocks/seed` |
+| **Logger** | `GET /api/logger/test`: herramienta de validación, no una funcionalidad del negocio |
+| **Products** | `GET/POST /api/products`, `GET/PUT/DELETE /api/products/{pid}` |
+
+Cada endpoint indica método, ruta, descripción, parámetros de ruta y query, body esperado, respuesta exitosa y los errores posibles, con un ejemplo real de cada uno.
+
+**Schemas reutilizables** (`components/schemas`): `User`, `UserInput`, `UserUpdate`, `Product`, `ProductInput`, `ProductUpdate`, `Order`, `OrderInput`, `OrderItem`, `ShippingAddress`, `Delivery`, `Pagination`, `SuccessResponse`, `ErrorResponse`, `MockUser`, `MockOrder`, `MockDelivery`, `MockCounts`, `LogLevel`.
+
 ## Estructura
 
 ```
@@ -295,6 +312,7 @@ src/
 ├── services/           
 ├── controllers/         
 ├── routes/             
+├── docs/
 ├── errors/
 ├── middlewares/       
 ├── utils/              

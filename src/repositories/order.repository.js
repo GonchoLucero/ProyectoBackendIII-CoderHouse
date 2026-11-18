@@ -32,7 +32,8 @@ class OrderRepository {
 
   async create(data) {
     const created = await OrderModel.create(data);
-    return created.toObject();
+    const { isMock, ...doc } = created.toObject();
+    return doc;
   }
 
   async insertMockMany(orders) {

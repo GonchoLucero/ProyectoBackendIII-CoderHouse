@@ -35,7 +35,8 @@ class DeliveryRepository {
 
   async create(data) {
     const created = await DeliveryModel.create(data);
-    return created.toObject();
+    const { isMock, ...doc } = created.toObject();
+    return doc;
   }
 
   async insertMockMany(deliveries) {
