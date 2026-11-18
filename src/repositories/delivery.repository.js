@@ -1,0 +1,47 @@
+import mongoose from 'mongoose';
+import { DeliveryModel } from '../models/delivery.model.js';
+
+const ORDER_PUBLIC_FIELDS = 'code status priority total user';
+const COURIER_PUBLIC_FIELDS = 'first_name last_name phone vehicle role';
+
+const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
+
+class DeliveryRepository {
+  async getAll({ filter = {}, limit, skip = 0, sort = { createdAt: -1 } } = {}) {
+    const [items, total] = await Promise.all([
+      DeliveryModel.find(filter)
+        .populate('order', ORDER_PUBLIC_FIELDS)
+        .populate('courier', COURIER_PUBLIC_FIELDS)
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      DeliveryModel.countDocuments(filter),
+    ]);
+    return { items, total };
+  }
+
+  async getById(id) {
+    if (!isValidId(id)) return null;
+    return DeliveryModel.findById(id)
+      .populate('order', ORDER_PUBLIC_FIELDS)
+      .populate('courier', COURIER_PUBLIC_FIELDS)
+      .lean();
+  }
+
+  async getOrderIds() {
+    return DeliveryModel.distinct('order');
+  }
+
+  async insertMockMany(deliveries) {
+    const docs = await DeliveryModel.insertMany(deliveries.map((d) => ({ ...d, isMock: true })));
+    return docs.length;
+  }
+
+  async deleteMocks() {
+    const { deletedCount } = await DeliveryModel.deleteMany({ isMock: true });
+    return deletedCount;
+  }
+}
+
+export default new DeliveryRepository();
