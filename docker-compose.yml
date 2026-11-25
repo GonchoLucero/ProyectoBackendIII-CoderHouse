@@ -1,0 +1,26 @@
+services:
+  api:
+    build: .
+    image: shipnow-api
+    env_file: .env.production
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/shipnow
+    ports:
+      - "8080:8080"
+    volumes:
+      - shipnow_uploads:/app/uploads
+      - shipnow_logs:/app/logs
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7
+    volumes:
+      - shipnow_mongo:/data/db
+    restart: unless-stopped
+
+volumes:
+  shipnow_uploads:
+  shipnow_logs:
+  shipnow_mongo:

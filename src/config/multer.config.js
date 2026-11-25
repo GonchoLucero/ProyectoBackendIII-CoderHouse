@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import multer from 'multer';
@@ -12,7 +13,7 @@ import {
   FileSaveError,
   ValidationError,
 } from '../errors/index.js';
-import { ALLOWED_MIME_TYPES, UPLOAD_FOLDERS, UPLOAD_LIMITS } from '../constants/index.js';
+import { ALLOWED_MIME_TYPES, UPLOAD_FOLDERS, UPLOAD_LIMITS, TMP_UPLOAD_MAX_AGE_MS } from '../constants/index.js';
 
 export const resolveUploadPath = (...segments) => path.resolve(config.uploadsDir, ...segments);
 
@@ -57,4 +58,21 @@ export const mapUploadError = (err, expectedField) => {
   }
   if (typeof err?.code === 'string' && err.code.startsWith('E')) return new FileSaveError(err.message, err);
   return new ValidationError('El formulario multipart/form-data es inválido', { motivo: err?.message });
+};
+
+export const cleanStaleTmpUploads = async (maxAgeMs = TMP_UPLOAD_MAX_AGE_MS) => {
+  const tmpDir = resolveUploadPath(UPLOAD_FOLDERS.TMP);
+  const entries = await fsp.readdir(tmpDir, { withFileTypes: true }).catch(() => []);
+  const now = Date.now();
+  let removed = 0;
+  for (const entry of entries.filter((e) => e.isFile())) {
+    const filePath = path.join(tmpDir, entry.name);
+    const { mtimeMs } = await fsp.stat(filePath);
+    if (now - mtimeMs > maxAgeMs) {
+      await fsp.rm(filePath, { force: true });
+      removed += 1;
+    }
+  }
+  if (removed) logger.info(`Se borraron ${removed} archivos temporales viejos de ${tmpDir}`);
+  return removed;
 };

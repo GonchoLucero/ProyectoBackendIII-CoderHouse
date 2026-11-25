@@ -255,3 +255,12 @@ export class FileSaveError extends AppError {
     super(ERRORS.FILE_SAVE_FAILED, { details: { motivo: reason }, cause });
   }
 }
+
+export class InternalEndpointDisabledError extends AppError {
+  constructor(path) {
+    super(ERRORS.INTERNAL_ENDPOINT_DISABLED, {
+      message: `El endpoint interno ${path} está deshabilitado en este entorno (ENABLE_INTERNAL_ENDPOINTS=false)`,
+      details: { path },
+    });
+  }
+}

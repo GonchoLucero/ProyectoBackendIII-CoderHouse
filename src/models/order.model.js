@@ -44,4 +44,7 @@ const orderSchema = new mongoose.Schema(
   { timestamps: true, versionKey: false }
 );
 
+orderSchema.index({ status: 1, priority: 1, createdAt: -1 });
+orderSchema.index({ user: 1, createdAt: -1 });
+
 export const OrderModel = mongoose.model('Order', orderSchema);

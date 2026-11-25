@@ -1,5 +1,6 @@
 import { LOG_LEVELS, LOG_FILES } from '../../constants/index.js';
-import { ref, success } from '../helpers.js';
+import { ref, success, errors, sample } from '../helpers.js';
+import { InternalEndpointDisabledError } from '../../errors/index.js';
 
 export const loggerPaths = {
   '/api/logger/test': {
@@ -53,6 +54,7 @@ export const loggerPaths = {
             },
           }
         ),
+        ...errors('GET', '/api/logger/test', { 403: [sample(new InternalEndpointDisabledError('/api/logger/test'))] }),
       },
     },
   },

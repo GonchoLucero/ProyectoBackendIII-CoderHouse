@@ -72,13 +72,16 @@ const logger = winston.createLogger({
   exitOnError: false,
 });
 
-let configuredEnv = null;
+let configuredKey = null;
 
-export const configureLogger = (nodeEnv) => {
-  if (configuredEnv === nodeEnv) return logger;
-  configuredEnv = nodeEnv;
+export const configureLogger = (nodeEnv, level) => {
+  const key = `${nodeEnv}:${level ?? ''}`;
+  if (configuredKey === key) return logger;
+  const sameEnv = configuredKey?.startsWith(`${nodeEnv}:`);
+  configuredKey = key;
+  logger.level = level ?? resolveLevel(nodeEnv);
+  if (sameEnv) return logger;
   logger.clear();
-  logger.level = resolveLevel(nodeEnv);
   buildTransports(nodeEnv).forEach((transport) => logger.add(transport));
   return logger;
 };

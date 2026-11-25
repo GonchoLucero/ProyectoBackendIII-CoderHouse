@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { NODE_ENVS } from '../constants/index.js';
+import { NODE_ENVS, LOG_LEVELS } from '../constants/index.js';
 import { configureLogger } from './logger.js';
 
 dotenv.config({ quiet: true });
@@ -35,13 +35,47 @@ if (!/^mongodb(\+srv)?:\/\//.test(process.env.MONGODB_URI)) {
   throw new Error('[config] MONGODB_URI debe comenzar con "mongodb://" o "mongodb+srv://"');
 }
 
+const isProduction = process.env.NODE_ENV === NODE_ENVS.PRODUCTION;
+
+const optional = (key) => {
+  const value = process.env[key]?.trim();
+  return value ? value : undefined;
+};
+
+const parseBoolean = (key, defaultValue) => {
+  const value = optional(key);
+  if (value === undefined) return defaultValue;
+  if (!['true', 'false'].includes(value.toLowerCase())) {
+    throw new Error(`[config] ${key} debe ser "true" o "false". Valor recibido: "${value}"`);
+  }
+  return value.toLowerCase() === 'true';
+};
+
+const logLevel = optional('LOG_LEVEL');
+if (logLevel && !Object.keys(LOG_LEVELS).includes(logLevel)) {
+  throw new Error(
+    `[config] LOG_LEVEL inválido: "${logLevel}". Valores permitidos: ${Object.keys(LOG_LEVELS).join(', ')}`
+  );
+}
+
+const publicUrl = optional('PUBLIC_URL') ?? `http://localhost:${port}`;
+if (!/^https?:\/\/[^\s]+$/.test(publicUrl)) {
+  throw new Error(`[config] PUBLIC_URL debe ser una URL http(s) válida. Valor recibido: "${publicUrl}"`);
+}
+
 const config = Object.freeze({
   port,
   mongoUri: process.env.MONGODB_URI,
   nodeEnv: process.env.NODE_ENV,
-  isProduction: process.env.NODE_ENV === NODE_ENVS.PRODUCTION,
+  isProduction,
   bcryptSaltRounds: Number(process.env.BCRYPT_SALT_ROUNDS) || 10,
-  uploadsDir: process.env.UPLOADS_DIR?.trim() || 'uploads',
+  uploadsDir: optional('UPLOADS_DIR') ?? 'uploads',
+  logLevel,
+  publicUrl: publicUrl.replace(/\/+$/, ''),
+  internalEndpointsEnabled: parseBoolean('ENABLE_INTERNAL_ENDPOINTS', !isProduction),
+  swaggerEnabled: parseBoolean('SWAGGER_ENABLED', !isProduction),
 });
+
+configureLogger(config.nodeEnv, config.logLevel);
 
 export default config;

@@ -8,6 +8,7 @@ export const ERRORS = Object.freeze({
   NO_FIELDS_TO_UPDATE: define('NO_FIELDS_TO_UPDATE', HTTP_STATUS.BAD_REQUEST, 'No hay campos válidos para actualizar'),
   INVALID_ID: define('INVALID_ID', HTTP_STATUS.BAD_REQUEST, 'El id enviado no tiene un formato válido'),
   INVALID_JSON: define('INVALID_JSON', HTTP_STATUS.BAD_REQUEST, 'El body no es un JSON válido'),
+  PAYLOAD_TOO_LARGE: define('PAYLOAD_TOO_LARGE', HTTP_STATUS.PAYLOAD_TOO_LARGE, 'El body del request supera el tamaño máximo permitido'),
   INVALID_PAGINATION: define('INVALID_PAGINATION', HTTP_STATUS.BAD_REQUEST, 'Parámetros de paginación inválidos'),
 
   INVALID_ROLE: define('INVALID_ROLE', HTTP_STATUS.BAD_REQUEST, 'Rol de usuario inválido'),
@@ -43,6 +44,7 @@ export const ERRORS = Object.freeze({
   INVALID_FILE_TYPE: define('INVALID_FILE_TYPE', HTTP_STATUS.UNSUPPORTED_MEDIA_TYPE, 'Tipo de archivo no permitido'),
   FILE_TOO_LARGE: define('FILE_TOO_LARGE', HTTP_STATUS.PAYLOAD_TOO_LARGE, 'El archivo supera el tamaño máximo permitido'),
   FILE_SAVE_FAILED: define('FILE_SAVE_FAILED', HTTP_STATUS.INTERNAL_SERVER_ERROR, 'No se pudo guardar el archivo'),
+  INTERNAL_ENDPOINT_DISABLED: define('INTERNAL_ENDPOINT_DISABLED', HTTP_STATUS.FORBIDDEN, 'Endpoint interno deshabilitado en este entorno'),
   DATABASE_UNAVAILABLE: define('DATABASE_UNAVAILABLE', HTTP_STATUS.SERVICE_UNAVAILABLE, 'La base de datos no está disponible'),
   INTERNAL_ERROR: define('INTERNAL_ERROR', HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Error interno del servidor'),
 });

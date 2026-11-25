@@ -186,3 +186,9 @@ export const UPLOAD_LIMITS = Object.freeze({
   MAX_FILE_SIZE_BYTES: 5 * 1024 * 1024,
   MAX_FILES: 1,
 });
+
+export const REQUEST_LIMITS = Object.freeze({
+  JSON_BODY: '100kb',
+});
+
+export const TMP_UPLOAD_MAX_AGE_MS = 60 * 60 * 1000;

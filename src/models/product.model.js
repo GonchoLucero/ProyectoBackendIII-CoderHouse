@@ -19,4 +19,6 @@ const productSchema = new mongoose.Schema(
   { timestamps: true, versionKey: false }
 );
 
+productSchema.index({ isDeleted: 1, status: 1, category: 1, createdAt: -1 });
+
 export const ProductModel = mongoose.model('Product', productSchema);

@@ -8,6 +8,7 @@ import { deliveriesPaths } from './paths/deliveries.docs.js';
 import { mocksPaths } from './paths/mocks.docs.js';
 import { loggerPaths } from './paths/logger.docs.js';
 import { uploadsPaths } from './paths/uploads.docs.js';
+import { healthPaths } from './paths/health.docs.js';
 
 export const SWAGGER_PATHS = Object.freeze({
   UI: '/api/docs',
@@ -27,7 +28,7 @@ export const swaggerSpec = {
       'Todas las respuestas de error tienen el formato `ErrorResponse`. La API no requiere autenticación.',
     ].join('\n'),
   },
-  servers: [{ url: `http://localhost:${config.port}`, description: 'Servidor local' }],
+  servers: [{ url: config.publicUrl, description: config.isProduction ? 'Servidor' : 'Servidor local' }],
   tags: [
     { name: 'Users', description: 'Usuarios: clientes (USER), repartidores (COURIER) y administradores (ADMIN)' },
     { name: 'Orders', description: 'Pedidos de los clientes' },
@@ -35,6 +36,7 @@ export const swaggerSpec = {
     { name: 'Mocks', description: 'Generación de datos simulados y carga controlada de datos de prueba' },
     { name: 'Logger', description: 'Herramienta interna para validar el sistema de logs' },
     { name: 'Products', description: 'Catálogo de productos' },
+    { name: 'Health', description: 'Estado de la API (health check)' },
     { name: 'Uploads', description: 'Carga de documentos de usuarios y comprobantes de pedidos y entregas (multipart/form-data)' },
   ],
   paths: {
@@ -45,11 +47,13 @@ export const swaggerSpec = {
     ...loggerPaths,
     ...productsPaths,
     ...uploadsPaths,
+    ...healthPaths,
   },
   components: { schemas },
 };
 
 export const setupSwagger = (app) => {
+  if (!config.swaggerEnabled) return;
   app.get(SWAGGER_PATHS.JSON, (req, res) => res.json(swaggerSpec));
   app.use(
     SWAGGER_PATHS.UI,

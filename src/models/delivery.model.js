@@ -20,4 +20,7 @@ const deliverySchema = new mongoose.Schema(
   { timestamps: true, versionKey: false }
 );
 
+deliverySchema.index({ status: 1, createdAt: -1 });
+deliverySchema.index({ courier: 1 });
+
 export const DeliveryModel = mongoose.model('Delivery', deliverySchema);

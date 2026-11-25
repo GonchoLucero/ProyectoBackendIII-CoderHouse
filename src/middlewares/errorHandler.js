@@ -11,6 +11,10 @@ const normalizeError = (err) => {
 
   if (err?.type === 'entity.parse.failed') return new AppError(ERRORS.INVALID_JSON);
 
+  if (err?.type === 'entity.too.large') {
+    return new AppError(ERRORS.PAYLOAD_TOO_LARGE, { details: { limitBytes: err.limit } });
+  }
+
   if (err?.name === 'CastError') {
     return new AppError(ERRORS.INVALID_ID, {
       message: `El valor "${err.value}" no es válido para "${err.path}"`,

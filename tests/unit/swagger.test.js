@@ -11,6 +11,7 @@ import ordersRouter from '../../src/routes/orders.router.js';
 import deliveriesRouter from '../../src/routes/deliveries.router.js';
 import mocksRouter from '../../src/routes/mocks.router.js';
 import loggerRouter from '../../src/routes/logger.router.js';
+import healthRouter from '../../src/routes/health.router.js';
 import userRepository from '../../src/repositories/user.repository.js';
 import orderRepository from '../../src/repositories/order.repository.js';
 import deliveryRepository from '../../src/repositories/delivery.repository.js';
@@ -24,6 +25,7 @@ const ROUTERS = {
   '/api/deliveries': deliveriesRouter,
   '/api/mocks': mocksRouter,
   '/api/logger': loggerRouter,
+  '/health': healthRouter,
 };
 
 const toOpenApiPath = (prefix, path) => `${prefix}${path === '/' ? '' : path}`.replace(/:(\w+)/g, '{$1}');

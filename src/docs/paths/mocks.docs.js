@@ -8,6 +8,7 @@ import {
   MockGenerationError,
   MockSeedError,
   SeedForbiddenError,
+  InternalEndpointDisabledError,
 } from '../../errors/index.js';
 import { MOCK_COLLECTIONS, MOCK_LIMITS, USER_ROLES } from '../../constants/index.js';
 import { ref, success, errors, sample, queryParam } from '../helpers.js';
@@ -45,6 +46,8 @@ const datasetErrors = (path) => [
   sample(new MockDependencyError('Para generar pedidos hace falta al menos 1 usuario', { required: 'users >= 1' }), `${path}?users=0&orders=5`),
 ];
 
+const internalDisabled = (path) => sample(new InternalEndpointDisabledError(path));
+
 const generationError = sample(new MockGenerationError('No se pudieron generar los datos de prueba'));
 
 const listResponse = (description, itemSchema, related) =>
@@ -65,13 +68,13 @@ const getMock = (path, summary, description, itemSchema, related) => ({
     parameters: [qtyParam],
     responses: {
       200: listResponse('Datos simulados', itemSchema, related),
-      ...errors('GET', path, { 400: qtyErrors(path), 500: [generationError] }),
+      ...errors('GET', path, { 400: qtyErrors(path), 403: [internalDisabled(path)], 500: [generationError] }),
     },
   },
 });
 
 const seedErrorExamples = {
-  403: [sample(new SeedForbiddenError())],
+  403: [sample(new SeedForbiddenError()), internalDisabled('/api/mocks/seed')],
   500: [
     sample(
       new MockSeedError({
@@ -142,7 +145,11 @@ export const mocksPaths = {
             },
           },
         }),
-        ...errors('GET', '/api/mocks/dataset', { 400: datasetErrors('/api/mocks/dataset'), 500: [generationError] }),
+        ...errors('GET', '/api/mocks/dataset', {
+          400: datasetErrors('/api/mocks/dataset'),
+          403: [internalDisabled('/api/mocks/dataset')],
+          500: [generationError],
+        }),
       },
     },
   },
@@ -221,7 +228,7 @@ export const mocksPaths = {
           { status: 'success', eliminados: { [MOCK_COLLECTIONS.USERS]: 13, [MOCK_COLLECTIONS.ORDERS]: 20, [MOCK_COLLECTIONS.DELIVERIES]: 20 } }
         ),
         ...errors('DELETE', '/api/mocks/seed', {
-          403: [sample(new SeedForbiddenError())],
+          403: [sample(new SeedForbiddenError()), internalDisabled('/api/mocks/seed')],
           500: [
             sample(new MockSeedError({ collection: 'todas', insertedBeforeError: 0, reason: 'connection lost' })),
           ],

@@ -1,17 +1,21 @@
 import express from 'express';
+import compression from 'compression';
 import apiRouter from './routes/index.js';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
 import { httpLogger } from './middlewares/httpLogger.js';
 import { setupSwagger } from './docs/swagger.js';
-import { HTTP_STATUS, RESPONSE_STATUS } from './constants/index.js';
+import healthRouter from './routes/health.router.js';
+import { REQUEST_LIMITS } from './constants/index.js';
 
 const app = express();
 
+app.disable('x-powered-by');
+app.use(compression());
 app.use(httpLogger);
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: REQUEST_LIMITS.JSON_BODY }));
+app.use(express.urlencoded({ extended: true, limit: REQUEST_LIMITS.JSON_BODY }));
 
-app.get('/health', (req, res) => res.status(HTTP_STATUS.OK).json({ status: RESPONSE_STATUS.SUCCESS }));
+app.use('/health', healthRouter);
 setupSwagger(app);
 app.use('/api', apiRouter);
 
