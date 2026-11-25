@@ -24,6 +24,7 @@ export const ERRORS = Object.freeze({
 
   DUPLICATE_EMAIL: define('DUPLICATE_EMAIL', HTTP_STATUS.CONFLICT, 'El email ya está registrado'),
   DUPLICATE_PRODUCT_CODE: define('DUPLICATE_PRODUCT_CODE', HTTP_STATUS.CONFLICT, 'Ya existe un producto con ese código'),
+  INVALID_STATUS_TRANSITION: define('INVALID_STATUS_TRANSITION', HTTP_STATUS.CONFLICT, 'El cambio de estado no está permitido'),
   DUPLICATE_KEY: define('DUPLICATE_KEY', HTTP_STATUS.CONFLICT, 'Ya existe un registro con ese valor único'),
 
   MOCK_INVALID_QTY: define('MOCK_INVALID_QTY', HTTP_STATUS.BAD_REQUEST, 'La cantidad debe ser un número entero'),
@@ -36,6 +37,12 @@ export const ERRORS = Object.freeze({
   MOCK_SEED_FAILED: define('MOCK_SEED_FAILED', HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Falló la carga de datos de prueba en MongoDB'),
   SEED_FORBIDDEN: define('SEED_FORBIDDEN', HTTP_STATUS.FORBIDDEN, 'La carga de datos de prueba está deshabilitada en producción'),
 
+  FILE_REQUIRED: define('FILE_REQUIRED', HTTP_STATUS.BAD_REQUEST, 'Hay que enviar un archivo'),
+  UNEXPECTED_FILE_FIELD: define('UNEXPECTED_FILE_FIELD', HTTP_STATUS.BAD_REQUEST, 'El campo del archivo no es el esperado'),
+  INVALID_DOCUMENT_TYPE: define('INVALID_DOCUMENT_TYPE', HTTP_STATUS.BAD_REQUEST, 'Tipo de documento inválido'),
+  INVALID_FILE_TYPE: define('INVALID_FILE_TYPE', HTTP_STATUS.UNSUPPORTED_MEDIA_TYPE, 'Tipo de archivo no permitido'),
+  FILE_TOO_LARGE: define('FILE_TOO_LARGE', HTTP_STATUS.PAYLOAD_TOO_LARGE, 'El archivo supera el tamaño máximo permitido'),
+  FILE_SAVE_FAILED: define('FILE_SAVE_FAILED', HTTP_STATUS.INTERNAL_SERVER_ERROR, 'No se pudo guardar el archivo'),
   DATABASE_UNAVAILABLE: define('DATABASE_UNAVAILABLE', HTTP_STATUS.SERVICE_UNAVAILABLE, 'La base de datos no está disponible'),
   INTERNAL_ERROR: define('INTERNAL_ERROR', HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Error interno del servidor'),
 });

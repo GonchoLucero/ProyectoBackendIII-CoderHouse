@@ -8,6 +8,11 @@ import {
   RESPONSE_STATUS,
   MOCK_COLLECTIONS,
   LOG_LEVELS,
+  ALLOWED_MIME_TYPES,
+  UPLOAD_LIMITS,
+  DOCUMENT_TYPES,
+  ORDER_RECEIPT_TYPES,
+  DELIVERY_RECEIPT_TYPES,
 } from '../../constants/index.js';
 import { ERRORS } from '../../errors/index.js';
 import { ref } from '../helpers.js';
@@ -80,6 +85,7 @@ export const schemas = {
         description: 'Solo para usuarios con rol COURIER (repartidores).',
         example: VEHICLE_TYPES.MOTORCYCLE,
       },
+      documents: { type: 'array', items: ref('FileMetadata'), description: 'Documentos cargados (solo metadatos).' },
       createdAt: dateTime,
       updatedAt: dateTime,
     },
@@ -224,6 +230,7 @@ export const schemas = {
       status: { type: 'string', enum: values(ORDER_STATUS), example: ORDER_STATUS.PENDING },
       priority: { type: 'string', enum: values(ORDER_PRIORITY), example: ORDER_PRIORITY.NORMAL },
       shippingAddress: ref('ShippingAddress'),
+      receipts: { type: 'array', items: ref('FileMetadata'), description: 'Comprobantes del pedido (solo metadatos).' },
       createdAt: dateTime,
       updatedAt: dateTime,
     },
@@ -237,6 +244,18 @@ export const schemas = {
       items: { type: 'array', minItems: 1, items: ref('OrderItem') },
       priority: { type: 'string', enum: values(ORDER_PRIORITY), default: ORDER_PRIORITY.NORMAL },
       shippingAddress: ref('ShippingAddress'),
+    },
+  },
+
+  OrderStatusUpdate: {
+    type: 'object',
+    required: ['status'],
+    properties: {
+      status: { type: 'string', enum: values(ORDER_STATUS), example: ORDER_STATUS.SHIPPED },
+      courier: {
+        ...objectId,
+        description: 'Id de un usuario con rol COURIER. Obligatorio para pasar a SHIPPED si la entrega no tiene repartidor; opcional al pasar a CONFIRMED.',
+      },
     },
   },
 
@@ -257,6 +276,7 @@ export const schemas = {
       status: { type: 'string', enum: values(DELIVERY_STATUS), example: DELIVERY_STATUS.PENDING_ASSIGNMENT },
       estimatedDeliveryDate: dateTime,
       deliveredAt: { ...dateTime, nullable: true },
+      receipts: { type: 'array', items: ref('FileMetadata'), description: 'Comprobantes de la entrega (solo metadatos).' },
       createdAt: dateTime,
       updatedAt: dateTime,
     },
@@ -284,6 +304,25 @@ export const schemas = {
       [MOCK_COLLECTIONS.COURIERS]: { type: 'integer', example: 3 },
       [MOCK_COLLECTIONS.ORDERS]: { type: 'integer', example: 20 },
       [MOCK_COLLECTIONS.DELIVERIES]: { type: 'integer', example: 20 },
+    },
+  },
+
+  FileMetadata: {
+    type: 'object',
+    description: 'Metadatos de un archivo cargado. El archivo queda en el servidor (carpeta uploads/); en MongoDB solo se guardan estos datos.',
+    properties: {
+      _id: objectId,
+      originalName: { type: 'string', example: 'dni-frente.pdf' },
+      fileName: { type: 'string', example: '1763952000000-9f2c4e1a7b3d5f60.pdf' },
+      path: { type: 'string', example: 'uploads/users/documents/1763952000000-9f2c4e1a7b3d5f60.pdf' },
+      mimetype: { type: 'string', enum: Object.keys(ALLOWED_MIME_TYPES), example: 'application/pdf' },
+      size: { type: 'integer', description: `Bytes (máximo ${UPLOAD_LIMITS.MAX_FILE_SIZE_MB} MB)`, example: 48213 },
+      documentType: {
+        type: 'string',
+        enum: [...Object.values(DOCUMENT_TYPES), ...Object.values(ORDER_RECEIPT_TYPES), ...Object.values(DELIVERY_RECEIPT_TYPES)],
+        example: DOCUMENT_TYPES.IDENTIFICATION,
+      },
+      uploadedAt: dateTime,
     },
   },
 

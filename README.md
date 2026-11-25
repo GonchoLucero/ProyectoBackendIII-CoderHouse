@@ -374,6 +374,107 @@ Se agregó `PATCH /api/orders/{oid}/status` para cambiar el estado de un pedido 
 
 Body: `{ "status": "CONFIRMED", "courier": "<_id de un COURIER>" }`. `courier` es obligatorio para pasar a `SHIPPED` si la entrega todavía no tiene repartidor. Si la transición no está permitida, responde **409 `INVALID_STATUS_TRANSITION`**, un código nuevo del diccionario de errores.
 
+## Carga de archivos (Multer)
+
+La API permite subir **documentos de usuarios** y **comprobantes de pedidos y entregas** con [Multer](https://github.com/expressjs/multer), usando `multipart/form-data`. El archivo queda guardado en el servidor y **en MongoDB se registran solo sus metadatos**, asociados a la entidad que corresponde.
+
+### Endpoints
+
+| Método | Ruta | Campo del archivo | Campos extra | Se asocia a |
+|---|---|---|---|---|
+| POST | `/api/users/{uid}/documents` | `document` | `documentType` (obligatorio) | Usuario → `documents` |
+| POST | `/api/orders/{oid}/receipts` | `receipt` | `receiptType` (opcional, por defecto `PAYMENT_RECEIPT`) | Pedido → `receipts` |
+| POST | `/api/deliveries/{did}/receipts` | `receipt` | `receiptType` (opcional, por defecto `DELIVERY_PROOF`) | Entrega → `receipts` |
+
+| Tipo | Valores permitidos |
+|---|---|
+| `documentType` | `IDENTIFICATION`, `PROOF_OF_ADDRESS`, `DRIVER_LICENSE`, `VEHICLE_INSURANCE` (las dos últimas solo para usuarios `COURIER`) |
+| `receiptType` (pedidos) | `PAYMENT_RECEIPT`, `INVOICE` |
+| `receiptType` (entregas) | `DELIVERY_PROOF`, `SIGNED_RECEIPT` |
+
+**Archivos aceptados:** PDF, JPG y PNG (`application/pdf`, `image/jpeg`, `image/png`), de hasta **5 MB**, uno por request.
+
+### Cómo probarlo
+
+```bash
+curl -X POST http://localhost:8080/api/users/<uid>/documents \
+  -F "documentType=IDENTIFICATION" \
+  -F "document=@./dni.pdf;type=application/pdf"
+
+curl -X POST http://localhost:8080/api/deliveries/<did>/receipts \
+  -F "receipt=@./firma.png;type=image/png"
+```
+
+También se puede probar desde Swagger (**http://localhost:8080/api/docs**, tag **Uploads**): **Try it out** → elegir el archivo → **Execute**.
+
+Respuesta (201):
+
+```json
+{
+  "status": "success",
+  "payload": {
+    "user": { "_id": "...", "first_name": "Ana", "documents": [ { "...": "..." } ] },
+    "document": {
+      "_id": "6b064b2d0d68c6fd29e10e86",
+      "originalName": "dni.pdf",
+      "fileName": "1795574573616-cd3c75af25499719.pdf",
+      "path": "uploads/users/documents/1795574573616-cd3c75af25499719.pdf",
+      "mimetype": "application/pdf",
+      "size": 48213,
+      "documentType": "IDENTIFICATION",
+      "uploadedAt": "2026-11-24T23:42:53.000Z"
+    }
+  }
+}
+```
+
+### Carpetas
+
+```
+uploads/
+├── tmp/                    
+├── users/
+│   ├── documents/          
+│   └── licenses/          
+└── receipts/
+    ├── orders/            
+    └── deliveries/        
+```
+
+### Cómo funciona
+
+1. **`src/config/multer.config.js`**: configuración centralizada de Multer: dónde se guarda (`diskStorage`), cómo se nombra, tipos aceptados (`fileFilter`), tamaño máximo (`limits`) y traducción de los errores de Multer a errores del dominio.
+2. **`src/middlewares/upload.js`**: middlewares `uploadUserDocument` y `uploadReceipt`. Las rutas solo los conectan con el controller.
+3. **`src/services/upload.service.js`**: valida el tipo de documento, que la entidad exista y las reglas de negocio (por ejemplo, las licencias solo para repartidores). Después mueve el archivo de `tmp/` a su carpeta final y registra los metadatos. **Si algo falla, borra el archivo**, así no quedan archivos huérfanos.
+4. **Repositories** (`addDocument`, `addReceipt`): guardan los metadatos en el usuario, pedido o entrega (`src/models/fileMetadata.schema.js`).
+
+### Errores de carga
+
+Responden con el formato centralizado del proyecto (`ErrorResponse`):
+
+| Código | HTTP | Cuándo |
+|---|---|---|
+| `FILE_REQUIRED` | 400 | No se envió archivo |
+| `UNEXPECTED_FILE_FIELD` | 400 | El archivo vino en un campo distinto al esperado (`document` o `receipt`) o hay más de un archivo |
+| `MISSING_FIELDS` | 400 | Falta `documentType` |
+| `INVALID_DOCUMENT_TYPE` | 400 | `documentType` o `receiptType` inválido, o documento de repartidor para otro rol |
+| `INVALID_FILE_TYPE` | 415 | El tipo de archivo no es PDF, JPG ni PNG |
+| `FILE_TOO_LARGE` | 413 | El archivo supera los 5 MB |
+| `USER_NOT_FOUND` / `ORDER_NOT_FOUND` / `DELIVERY_NOT_FOUND` | 404 | La entidad no existe |
+| `FILE_SAVE_FAILED` | 500 | Error al guardar el archivo en disco |
+
+### Logs
+
+- `info`: documento cargado, comprobante asociado a un pedido o entrega.
+- `warning`: intento de subir un tipo de archivo no permitido, y cualquier error 4xx de carga.
+- `error`: falla al guardar el archivo.
+
+### Tests de carga
+
+`tests/functional/uploads.test.js` cubre la carga correcta de documentos (con el archivo guardado en su carpeta y los metadatos en la base), la licencia de un repartidor y los comprobantes de pedido y entrega. También cubre los errores: falta el archivo, falta el tipo, tipo de documento inválido, tipo de archivo no permitido, archivo de más de 5 MB, campo incorrecto y entidad inexistente. En los casos de error verifica además que no quede ningún archivo en el servidor.
+
+En los tests, los archivos se guardan en una carpeta temporal del sistema (`UPLOADS_DIR`, que tiene que contener `test`) y se borran antes de cada test y al final de la suite.
+
 ## Estructura
 
 ```
@@ -398,6 +499,7 @@ src/
 └── server.js
 tests/                  
 logs/
+uploads/
 ```
 
 ## ¿Por qué separé así la lógica entre Service y Repository?

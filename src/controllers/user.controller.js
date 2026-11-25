@@ -1,6 +1,7 @@
 import userService from '../services/user.service.js';
 import { sendSuccess } from '../utils/response.utils.js';
 import { HTTP_STATUS } from '../constants/index.js';
+import uploadService from '../services/upload.service.js';
 
 const getAll = async (req, res) => {
   const { limit, page, role } = req.query;
@@ -28,4 +29,9 @@ const remove = async (req, res) => {
   res.status(HTTP_STATUS.NO_CONTENT).send();
 };
 
-export default { getAll, getById, create, update, remove };
+const uploadDocument = async (req, res) => {
+  const result = await uploadService.uploadUserDocument(req.params.uid, req.file, req.body);
+  sendSuccess(res, HTTP_STATUS.CREATED, { payload: result });
+};
+
+export default { getAll, getById, create, update, remove, uploadDocument };

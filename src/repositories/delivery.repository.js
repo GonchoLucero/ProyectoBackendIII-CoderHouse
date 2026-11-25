@@ -39,6 +39,22 @@ class DeliveryRepository {
     return doc;
   }
 
+  async getByOrder(orderId) {
+    if (!isValidId(orderId)) return null;
+    return DeliveryModel.findOne({ order: orderId }).lean();
+  }
+
+  async update(id, data) {
+    if (!isValidId(id)) return null;
+    const { matchedCount } = await DeliveryModel.updateOne({ _id: id }, data, { runValidators: true });
+    return matchedCount ? DeliveryModel.findById(id).populate('courier', COURIER_PUBLIC_FIELDS).lean() : null;
+  }
+
+  async addReceipt(id, metadata) {
+    const { matchedCount } = await DeliveryModel.updateOne({ _id: id }, { $push: { receipts: metadata } });
+    return matchedCount ? this.getById(id) : null;
+  }
+
   async insertMockMany(deliveries) {
     const docs = await DeliveryModel.insertMany(deliveries.map((d) => ({ ...d, isMock: true })));
     return docs.length;

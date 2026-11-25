@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { ORDER_STATUS, ORDER_PRIORITY } from '../constants/index.js';
+import { fileMetadataSchema } from './fileMetadata.schema.js';
 
 const orderItemSchema = new mongoose.Schema(
   {
@@ -37,6 +38,7 @@ const orderSchema = new mongoose.Schema(
       default: ORDER_PRIORITY.NORMAL,
     },
     shippingAddress: { type: addressSchema, required: true },
+    receipts: { type: [fileMetadataSchema], default: [] },
     isMock: { type: Boolean, default: false, select: false },
   },
   { timestamps: true, versionKey: false }

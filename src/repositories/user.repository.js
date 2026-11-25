@@ -47,6 +47,11 @@ class UserRepository {
     return deletedCount;
   }
 
+  async addDocument(id, metadata) {
+    const { matchedCount } = await UserModel.updateOne({ _id: id }, { $push: { documents: metadata } });
+    return matchedCount ? this.getById(id) : null;
+  }
+
   async update(id, data) {
     if (!isValidId(id)) return null;
     return UserModel.findByIdAndUpdate(id, data, {

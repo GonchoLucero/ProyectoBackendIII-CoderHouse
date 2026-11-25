@@ -41,6 +41,7 @@ const config = Object.freeze({
   nodeEnv: process.env.NODE_ENV,
   isProduction: process.env.NODE_ENV === NODE_ENVS.PRODUCTION,
   bcryptSaltRounds: Number(process.env.BCRYPT_SALT_ROUNDS) || 10,
+  uploadsDir: process.env.UPLOADS_DIR?.trim() || 'uploads',
 });
 
 export default config;

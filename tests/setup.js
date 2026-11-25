@@ -1,3 +1,6 @@
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 
@@ -5,6 +8,7 @@ process.env.NODE_ENV = 'test';
 dotenv.config({ path: '.env.test', quiet: true });
 process.env.PORT ||= '8081';
 process.env.BCRYPT_SALT_ROUNDS ||= '4';
+process.env.UPLOADS_DIR ||= path.join(os.tmpdir(), `shipnow-uploads-test-${process.pid}`);
 
 let memoryServer = null;
 
@@ -22,6 +26,13 @@ if (!/test/i.test(dbName)) {
   );
 }
 
+if (!/test/i.test(path.basename(process.env.UPLOADS_DIR))) {
+  throw new Error(
+    `[tests] La carpeta de uploads de testing debe tener "test" en el nombre (recibido: "${process.env.UPLOADS_DIR}"). ` +
+      'Esto evita borrar archivos reales. Revisá UPLOADS_DIR en .env.test.'
+  );
+}
+
 export const mochaHooks = {
   async beforeAll() {
     const { connectDB } = await import('../src/config/db.config.js');
@@ -32,5 +43,6 @@ export const mochaHooks = {
     await mongoose.connection.dropDatabase();
     await mongoose.disconnect();
     if (memoryServer) await memoryServer.stop();
+    await fs.rm(process.env.UPLOADS_DIR, { recursive: true, force: true });
   },
 };

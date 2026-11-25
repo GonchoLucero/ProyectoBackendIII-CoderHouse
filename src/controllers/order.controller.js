@@ -1,6 +1,7 @@
 import orderService from '../services/order.service.js';
 import { sendSuccess } from '../utils/response.utils.js';
 import { HTTP_STATUS } from '../constants/index.js';
+import uploadService from '../services/upload.service.js';
 
 const getAll = async (req, res) => {
   const { limit, page, status, priority } = req.query;
@@ -18,4 +19,14 @@ const create = async (req, res) => {
   sendSuccess(res, HTTP_STATUS.CREATED, { payload: result });
 };
 
-export default { getAll, getById, create };
+const updateStatus = async (req, res) => {
+  const result = await orderService.updateOrderStatus(req.params.oid, req.body);
+  sendSuccess(res, HTTP_STATUS.OK, { payload: result });
+};
+
+const uploadReceipt = async (req, res) => {
+  const result = await uploadService.uploadOrderReceipt(req.params.oid, req.file, req.body);
+  sendSuccess(res, HTTP_STATUS.CREATED, { payload: result });
+};
+
+export default { getAll, getById, create, updateStatus, uploadReceipt };

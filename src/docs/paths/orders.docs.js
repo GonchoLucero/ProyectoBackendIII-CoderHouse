@@ -6,8 +6,9 @@ import {
   ValidationError,
   OrderNotFoundError,
   UserNotFoundError,
+  InvalidStatusTransitionError,
 } from '../../errors/index.js';
-import { ORDER_STATUS, ORDER_PRIORITY, PAGINATION, USER_ROLES } from '../../constants/index.js';
+import { ORDER_STATUS, ORDER_PRIORITY, ORDER_STATUS_TRANSITIONS, PAGINATION, USER_ROLES } from '../../constants/index.js';
 import { ref, success, errors, sample, pathParam, queryParam, jsonBody } from '../helpers.js';
 import { serverErrors, invalidJson } from './common.js';
 
@@ -92,6 +93,52 @@ export const ordersPaths = {
           properties: { status: { type: 'string' }, payload: ref('Order') },
         }),
         ...errors('GET', `/api/orders/${ID}`, { 404: [sample(new OrderNotFoundError(ID))], ...serverErrors }),
+      },
+    },
+  },
+  '/api/orders/{oid}/status': {
+    patch: {
+      tags: ['Orders'],
+      summary: 'Actualizar el estado de un pedido',
+      description: [
+        'Cambia el estado del pedido y sincroniza su entrega. Transiciones permitidas:',
+        '',
+        ...Object.entries(ORDER_STATUS_TRANSITIONS).map(
+          ([from, to]) => `- \`${from}\` → ${to.length ? to.map((t) => `\`${t}\``).join(', ') : 'estado final'}`
+        ),
+        '',
+        'Efecto en la entrega: CONFIRMED con `courier` → ASSIGNED · SHIPPED → IN_TRANSIT (requiere repartidor) · DELIVERED → DELIVERED (con deliveredAt) · CANCELLED → CANCELLED.',
+      ].join('\n'),
+      parameters: [pathParam('oid', 'Id del pedido')],
+      requestBody: jsonBody(ref('OrderStatusUpdate'), { status: ORDER_STATUS.CONFIRMED, courier: ID }),
+      responses: {
+        200: success('Estado actualizado', {
+          type: 'object',
+          properties: {
+            status: { type: 'string' },
+            payload: { type: 'object', properties: { order: ref('Order'), delivery: ref('Delivery') } },
+          },
+        }),
+        ...errors('PATCH', `/api/orders/${ID}/status`, {
+          400: [
+            sample(new MissingFieldsError(['status'])),
+            sample(new InvalidStatusError('PERDIDO', ORDER_STATUS)),
+            sample(new ValidationError('Para despachar el pedido hace falta un repartidor: enviá "courier" en el body', { field: 'courier' })),
+            sample(new ValidationError(`El repartidor debe ser un usuario con rol ${USER_ROLES.COURIER}`, { field: 'courier', role: USER_ROLES.USER })),
+            invalidJson,
+          ],
+          404: [sample(new OrderNotFoundError(ID)), sample(new UserNotFoundError(ID))],
+          409: [
+            sample(
+              new InvalidStatusTransitionError(
+                ORDER_STATUS.DELIVERED,
+                ORDER_STATUS.PENDING,
+                ORDER_STATUS_TRANSITIONS[ORDER_STATUS.DELIVERED]
+              )
+            ),
+          ],
+          ...serverErrors,
+        }),
       },
     },
   },

@@ -120,6 +120,17 @@ export class DuplicateProductCodeError extends AppError {
   }
 }
 
+export class InvalidStatusTransitionError extends AppError {
+  constructor(from, to, allowed) {
+    super(ERRORS.INVALID_STATUS_TRANSITION, {
+      message: allowed.length
+        ? `No se puede pasar un pedido de ${from} a ${to}. Estados posibles: ${allowed.join(', ')}`
+        : `No se puede pasar un pedido de ${from} a ${to}: ${from} es un estado final`,
+      details: { from, to, allowed },
+    });
+  }
+}
+
 export class InvalidMockQuantityError extends AppError {
   constructor(param, value, reason = 'debe ser un número entero mayor a 0') {
     super(ERRORS.MOCK_INVALID_QTY, {
@@ -190,5 +201,57 @@ export class MockSeedError extends AppError {
 export class SeedForbiddenError extends AppError {
   constructor() {
     super(ERRORS.SEED_FORBIDDEN);
+  }
+}
+
+export class FileRequiredError extends AppError {
+  constructor(field) {
+    super(ERRORS.FILE_REQUIRED, {
+      message: `Hay que enviar un archivo en el campo "${field}" (multipart/form-data)`,
+      details: { field },
+    });
+  }
+}
+
+export class UnexpectedFileFieldError extends AppError {
+  constructor(received, expected) {
+    super(ERRORS.UNEXPECTED_FILE_FIELD, {
+      message: `El archivo tiene que enviarse en el campo "${expected}"${received ? ` (se recibió "${received}")` : ''}`,
+      details: { received, expected },
+    });
+  }
+}
+
+export class InvalidDocumentTypeError extends AppError {
+  constructor(value, allowed, message) {
+    const allowedList = Array.isArray(allowed) ? allowed : Object.values(allowed);
+    super(ERRORS.INVALID_DOCUMENT_TYPE, {
+      message: message ?? `Tipo de documento inválido: "${value}". Opciones: ${allowedList.join(', ')}`,
+      details: { value, allowed: allowedList },
+    });
+  }
+}
+
+export class InvalidFileTypeError extends AppError {
+  constructor(mimetype, allowed) {
+    super(ERRORS.INVALID_FILE_TYPE, {
+      message: `Tipo de archivo no permitido: "${mimetype}". Permitidos: ${allowed.join(', ')}`,
+      details: { mimetype, allowed },
+    });
+  }
+}
+
+export class FileTooLargeError extends AppError {
+  constructor(maxBytes) {
+    super(ERRORS.FILE_TOO_LARGE, {
+      message: `El archivo supera el tamaño máximo de ${maxBytes / (1024 * 1024)} MB`,
+      details: { maxBytes },
+    });
+  }
+}
+
+export class FileSaveError extends AppError {
+  constructor(reason, cause) {
+    super(ERRORS.FILE_SAVE_FAILED, { details: { motivo: reason }, cause });
   }
 }

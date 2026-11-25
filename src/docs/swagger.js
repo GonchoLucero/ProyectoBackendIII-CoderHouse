@@ -7,6 +7,7 @@ import { ordersPaths } from './paths/orders.docs.js';
 import { deliveriesPaths } from './paths/deliveries.docs.js';
 import { mocksPaths } from './paths/mocks.docs.js';
 import { loggerPaths } from './paths/logger.docs.js';
+import { uploadsPaths } from './paths/uploads.docs.js';
 
 export const SWAGGER_PATHS = Object.freeze({
   UI: '/api/docs',
@@ -34,6 +35,7 @@ export const swaggerSpec = {
     { name: 'Mocks', description: 'Generación de datos simulados y carga controlada de datos de prueba' },
     { name: 'Logger', description: 'Herramienta interna para validar el sistema de logs' },
     { name: 'Products', description: 'Catálogo de productos' },
+    { name: 'Uploads', description: 'Carga de documentos de usuarios y comprobantes de pedidos y entregas (multipart/form-data)' },
   ],
   paths: {
     ...usersPaths,
@@ -42,6 +44,7 @@ export const swaggerSpec = {
     ...mocksPaths,
     ...loggerPaths,
     ...productsPaths,
+    ...uploadsPaths,
   },
   components: { schemas },
 };

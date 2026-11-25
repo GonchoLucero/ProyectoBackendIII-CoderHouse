@@ -36,6 +36,17 @@ class OrderRepository {
     return doc;
   }
 
+  async updateStatus(id, status) {
+    if (!isValidId(id)) return null;
+    const { matchedCount } = await OrderModel.updateOne({ _id: id }, { status }, { runValidators: true });
+    return matchedCount ? this.getById(id) : null;
+  }
+
+  async addReceipt(id, metadata) {
+    const { matchedCount } = await OrderModel.updateOne({ _id: id }, { $push: { receipts: metadata } });
+    return matchedCount ? this.getById(id) : null;
+  }
+
   async insertMockMany(orders) {
     const docs = await OrderModel.insertMany(orders.map((o) => ({ ...o, isMock: true })));
     return docs.length;

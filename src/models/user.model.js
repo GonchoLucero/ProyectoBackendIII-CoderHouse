@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { USER_ROLES, VEHICLE_TYPES } from '../constants/index.js';
+import { fileMetadataSchema } from './fileMetadata.schema.js';
 
 const userSchema = new mongoose.Schema(
   {
@@ -15,6 +16,7 @@ const userSchema = new mongoose.Schema(
       default: USER_ROLES.USER,
     },
     vehicle: { type: String, enum: Object.values(VEHICLE_TYPES) },
+    documents: { type: [fileMetadataSchema], default: [] },
     isMock: { type: Boolean, default: false, select: false },
   },
   { timestamps: true, versionKey: false }

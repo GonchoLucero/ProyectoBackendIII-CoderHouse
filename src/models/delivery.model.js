@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { DELIVERY_STATUS } from '../constants/index.js';
+import { fileMetadataSchema } from './fileMetadata.schema.js';
 
 const deliverySchema = new mongoose.Schema(
   {
@@ -13,6 +14,7 @@ const deliverySchema = new mongoose.Schema(
     },
     estimatedDeliveryDate: { type: Date },
     deliveredAt: { type: Date, default: null },
+    receipts: { type: [fileMetadataSchema], default: [] },
     isMock: { type: Boolean, default: false, select: false },
   },
   { timestamps: true, versionKey: false }
