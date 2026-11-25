@@ -296,6 +296,84 @@ Cada endpoint indica método, ruta, descripción, parámetros de ruta y query, b
 
 **Schemas reutilizables** (`components/schemas`): `User`, `UserInput`, `UserUpdate`, `Product`, `ProductInput`, `ProductUpdate`, `Order`, `OrderInput`, `OrderItem`, `ShippingAddress`, `Delivery`, `Pagination`, `SuccessResponse`, `ErrorResponse`, `MockUser`, `MockOrder`, `MockDelivery`, `MockCounts`, `LogLevel`.
 
+## Testing (Mocha, Chai y Supertest)
+
+### Herramientas
+
+| Herramienta | Para qué |
+|---|---|
+| [Mocha](https://mochajs.org/) | Organiza y ejecuta los tests (`describe`, `it`, hooks `before`/`beforeEach`/`after`) |
+| [Chai](https://www.chaijs.com/) | Valida los resultados (`expect(...).to...`) |
+| [Supertest](https://github.com/ladjs/supertest) | Hace las peticiones HTTP contra la app de Express **sin levantar el servidor** |
+| [mongodb-memory-server](https://github.com/typegoose/mongodb-memory-server) | Levanta una base MongoDB temporal y descartable solo para los tests |
+
+La app de Express está separada del arranque: `src/app.js` exporta la app y `src/server.js` es el único que conecta a MongoDB y abre el puerto. Los tests importan `app.js` directamente.
+
+### Cómo ejecutarlos
+
+```bash
+npm install
+npm test                  
+npm run test:functional   
+npm run test:unit        
+```
+
+La suite se puede correr las veces que quieras seguidas: cada grupo limpia los datos que genera.
+
+
+### Datos de prueba y limpieza
+
+- Los datos son controlados y descartables: cada test crea lo que necesita a través de la API, con los helpers de `tests/helpers/factories.js` (por ejemplo, crea un cliente válido antes de crear un pedido), o con los endpoints de mocks.
+- **Limpieza:** cada archivo funcional vacía las colecciones en `beforeEach` y en `after` (`tests/helpers/db.js`). Al terminar la suite se borra la base de testing completa y se apaga la base en memoria (`tests/setup.js`). Los tests no dependen del orden ni de datos previos.
+
+### Organización
+
+```
+tests/
+├── setup.js                
+├── helpers/
+│   ├── db.js                
+│   ├── factories.js         
+│   └── assertions.js        
+├── functional/              
+│   ├── users.test.js
+│   ├── orders.test.js
+│   ├── deliveries.test.js
+│   ├── mocks.test.js
+│   ├── logger.test.js
+│   ├── swagger.test.js
+│   └── errors.test.js
+└── unit/                    
+```
+
+### Módulos cubiertos
+
+| Módulo | Casos exitosos | Casos de error |
+|---|---|---|
+| **Users** | listar (vacío, con datos, filtro por rol, paginación), obtener por id, crear | rol inválido, paginación inválida, usuario inexistente (404), datos incompletos, email duplicado, email inválido |
+| **Orders** | crear pedido válido (con su entrega), listar con cliente populado, filtrar por estado y prioridad, obtener por id | datos incompletos, dirección incompleta, ítem inválido, prioridad inválida, usuario inexistente, usuario que no es cliente, estado inválido, pedido inexistente (404) |
+| **Estados** (`PATCH /api/orders/{oid}/status`) | confirmar con repartidor, ciclo completo hasta `DELIVERED`, cancelar | estado inválido, estado faltante, transición no permitida (409), despachar sin repartidor, repartidor inválido, pedido inexistente |
+| **Deliveries** | listar con pedido populado, filtrar por estado, obtener por id | estado inválido, entrega inexistente (404) |
+| **Mocks** | generar users, couriers, orders, deliveries y dataset; insertar con `seed` paso a paso y con `seed/all`; borrar solo los mocks | `qty` no numérica, 0, decimal, negativa o mayor a 500; dataset vacío; dependencias faltantes; colección inválida |
+| **Logger** | `GET /api/logger/test` con los 6 niveles | método no soportado |
+| **Swagger** | `/api/docs` (redirección y UI) y `/api/docs.json` | cada 404 documentado de un recurso por id se comprueba contra la API |
+| **Errores generales** | — | ruta inexistente, JSON mal formado, id con formato inválido |
+
+En todos los casos se valida el **status HTTP** y la **estructura del body**. En los errores, además, el formato del módulo de errores: `status`, `error.code`, `error.message`, `method`, `path` y `timestamp`.
+
+### Actualización de estados
+
+Se agregó `PATCH /api/orders/{oid}/status` para cambiar el estado de un pedido y sincronizar su entrega:
+
+| Estado actual | Puede pasar a |
+|---|---|
+| `PENDING` | `CONFIRMED`, `CANCELLED` |
+| `CONFIRMED` | `SHIPPED`, `CANCELLED` |
+| `SHIPPED` | `DELIVERED` |
+| `DELIVERED` / `CANCELLED` | — (estados finales) |
+
+Body: `{ "status": "CONFIRMED", "courier": "<_id de un COURIER>" }`. `courier` es obligatorio para pasar a `SHIPPED` si la entrega todavía no tiene repartidor. Si la transición no está permitida, responde **409 `INVALID_STATUS_TRANSITION`**, un código nuevo del diccionario de errores.
+
 ## Estructura
 
 ```
